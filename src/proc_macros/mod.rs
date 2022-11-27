@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use litrs::StringLit;
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use regex_syntax::hir::Hir;
 use syn::{self, parse_macro_input, DataStruct, Ident, Type};
 
@@ -64,9 +64,10 @@ impl<'a> Data<'a> {
                     out.push(quote!((#(#child),*)));
                 }
                 ty => {
+                    let err_lit = format!("Failed to parse field {}", i);
                     *i += 1;
                     out.push(
-                        quote!(#ty::from_str(caps_.get(#i).map(|m| m.as_str()).unwrap_or(""))?),
+                        quote!(#ty::from_str(caps_.get(#i).map(|m| m.as_str()).unwrap_or("")).context(#err_lit)?),
                     );
                 }
             }
@@ -92,8 +93,11 @@ impl<'a> Data<'a> {
                     };
                     keys.remove(&name.to_string());
                     let ty = &field.ty;
+                    let err_lit = format!("Failed to parse field {}", name);
                     let i = i + 1;
-                    field_tokens.push(quote!(#name: #ty::from_str(caps_.get(#i).map(|m| m.as_str()).unwrap_or(""))?));
+                    field_tokens.push(
+                        quote!(#name: #ty::from_str(caps_.get(#i).map(|m| m.as_str()).unwrap_or("")).context(#err_lit)?),
+                    );
                 }
                 if !keys.is_empty() {
                     panic!("No fields for named captures: {:?}", keys);
@@ -152,30 +156,24 @@ fn gen_value(regex_raw: &str, ast: &syn::DeriveInput) -> TokenStream {
 fn gen_impls(regex_raw: &str, ast: syn::DeriveInput) -> TokenStream {
     let value = gen_value(regex_raw, &ast);
     let name = &ast.ident;
+    let vis = &ast.vis;
+    let name_parser = format_ident!("{}FromRegex", name);
     let mut out = vec![ast.to_token_stream()];
     #[cfg(feature = "unicode")]
     out.push(quote! {
-        impl std::str::FromStr for #name {
-            type Err = structre::Error;
-            fn from_str(input: &str) -> Result<Self, Self::Err> {
+        #vis struct #name_parser(structre::UnicodeRegex);
+
+        impl #name_parser {
+            #vis fn new() -> Self {
+                Self(structre::UnicodeRegex::new(#regex_raw).unwrap())
+            }
+
+            #vis fn parse(&self, input: &str) -> structre::Result<#name> {
                 #[allow(unused_imports)]
                 use std::str::FromStr;
-                static re: structre::Lazy<structre::UnicodeRegex> = structre::Lazy::new(
-                    || structre::UnicodeRegex::new(#regex_raw).unwrap());
-                let caps_ = re.captures(input).ok_or_else(|| structre::Error::msg("No match"))?;
-                #value
-            }
-        }
-    });
-    #[cfg(feature = "bytes")]
-    out.push(quote! {
-        impl std::str::FromU8Str for #name {
-            fn from_str(input: &[u8]) -> structre::Result<Self> {
                 #[allow(unused_imports)]
-                use structre::FromU8Str;
-                static re: structre::Lazy<structre::BytesRegex> = structre::Lazy::new(
-                    || structre::BytesRegex::new(#regex_raw).unwrap());
-                let caps_ = re.captures(input).ok_or_else(|| "No match".into())?;
+                use structre::Context;
+                let caps_ = self.0.captures(input).ok_or_else(|| structre::Error::msg("No match"))?;
                 #value
             }
         }
@@ -220,9 +218,10 @@ mod tests {
                 &syn::parse2(TokenStream::from_str("struct Parsed(String);").unwrap()).unwrap(),
             )
             .to_string(),
-            quote!(Ok(Parsed(String::from_str(
-                caps_.get(1usize).map(|m| m.as_str()).unwrap_or("")
-            )?)))
+            quote!(Ok(Parsed(
+                String::from_str(caps_.get(1usize).map(|m| m.as_str()).unwrap_or(""))
+                    .context("Failed to parse field 0")?
+            )))
             .to_string()
         );
     }
@@ -237,8 +236,10 @@ mod tests {
             )
             .to_string(),
             quote!(Ok(Parsed((
-                String::from_str(caps_.get(1usize).map(|m| m.as_str()).unwrap_or(""))?,
-                u32::from_str(caps_.get(2usize).map(|m| m.as_str()).unwrap_or(""))?
+                String::from_str(caps_.get(1usize).map(|m| m.as_str()).unwrap_or(""))
+                    .context("Failed to parse field 0")?,
+                u32::from_str(caps_.get(2usize).map(|m| m.as_str()).unwrap_or(""))
+                    .context("Failed to parse field 1")?
             ))))
             .to_string()
         );
@@ -249,13 +250,15 @@ mod tests {
         assert_eq!(
             gen_value(
                 "(?P<a>a)(?P<b>b)",
-                &syn::parse2(TokenStream::from_str("struct Parsed { a: String, b: u32 }").unwrap())
+                &syn::parse2(TokenStream::from_str("struct Parsed { b: u32, a: String }").unwrap())
                     .unwrap(),
             )
             .to_string(),
             quote!(Ok(Parsed {
-                a: String::from_str(caps_.get(1usize).map(|m| m.as_str()).unwrap_or(""))?,
-                b: u32::from_str(caps_.get(2usize).map(|m| m.as_str()).unwrap_or(""))?
+                b: u32::from_str(caps_.get(2usize).map(|m| m.as_str()).unwrap_or(""))
+                    .context("Failed to parse field b")?,
+                a: String::from_str(caps_.get(1usize).map(|m| m.as_str()).unwrap_or(""))
+                    .context("Failed to parse field a")?
             }))
             .to_string()
         );

@@ -10,7 +10,6 @@ path = "mod.rs"
 [features]
 default = ["unicode"]
 unicode = []
-bytes = []
 
 [dependencies]
 litrs = "0.2.3"
