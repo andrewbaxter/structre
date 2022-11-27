@@ -2,6 +2,11 @@
 name = "structre_proc_macros"
 version = "0.0.1"
 edition = "2021"
+license = "ISC"
+description = "Static-checked parsing of regexes into structs (helper crate)"
+homepage = "https://github.com/andrewbaxter/structre"
+repository = "https://github.com/andrewbaxter/structre"
+readme = "../../readme.md"
 
 [lib]
 proc-macro = true
