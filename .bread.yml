@@ -1,0 +1,12 @@
+!v1
+weights:
+  accounts:
+    1: 100
+  projects:
+    https://github.com/LukasKalbertodt/litrs/: 100
+    https://github.com/dtolnay/anyhow: 100
+    https://github.com/dtolnay/proc-macro2: 100
+    https://github.com/dtolnay/quote: 100
+    https://github.com/dtolnay/syn: 100
+    https://github.com/matklad/once_cell: 100
+    https://github.com/rust-lang/regex: 100
