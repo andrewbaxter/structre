@@ -1,6 +1,6 @@
 [package]
 name = "structre_proc_macros"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 license = "ISC"
 description = "Static-checked parsing of regexes into structs (helper crate)"
@@ -22,3 +22,6 @@ proc-macro2 = "1.0.47"
 quote = "1.0.21"
 regex-syntax = "0.6.28"
 syn = "1.0.103"
+
+[dev-dependencies]
+genemichaels = "0.1.21"

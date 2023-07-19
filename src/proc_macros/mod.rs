@@ -168,7 +168,7 @@ fn gen_impls(regex_raw: &str, ast: syn::DeriveInput) -> TokenStream {
             }
             #vis fn parse(&self, input: &str) -> Result < #name,
             String > {
-                let caps_ = self.0.captures(input).ok_or_else(|| ToString::to_string("No match"))?;
+                let caps_ = self.0.captures(input).ok_or_else(|| std::string::ToString::to_string("No match"))?;
                 #value
             }
         }
@@ -195,69 +195,79 @@ pub fn structre(args: proc_macro::TokenStream, body: proc_macro::TokenStream) ->
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::{
+        str::FromStr,
+    };
+    use genemichaels::FormatConfig;
     use proc_macro2::TokenStream;
     use crate::gen_value;
     use quote::quote;
 
+    fn comp(got: TokenStream, expected: TokenStream) {
+        let cfg = FormatConfig::default();
+        let mut s = [got, expected].into_iter().map(|s| genemichaels::format_str(&quote!(fn x() {
+            #s
+        }).to_string(), &cfg)).collect::<Vec<_>>();
+        let got = s.remove(0).expect("Failed to format got code").rendered;
+        let expected = s.remove(0).expect("Failed to format expected code").rendered;
+        assert_eq!(got, expected, "Mismatch:\n\nGot:\n{}\n\nExpected:\n{}", got, expected);
+    }
+
     #[test]
     fn newtype_string() {
-        assert_eq!(
-            gen_value(
-                "(a)",
-                &syn::parse2(TokenStream::from_str("struct Parsed(String);").unwrap()).unwrap(),
-            ).to_string(),
+        comp(
+            gen_value("(a)", &syn::parse2(TokenStream::from_str("struct Parsed(String);").unwrap()).unwrap()),
             quote!(
                 Ok(
                     Parsed(
-                        String::from_str(
+                        <String as std::str::FromStr>::from_str(
                             caps_.get(1usize).map(|m| m.as_str()).unwrap_or(""),
-                        ).context("Failed to parse field 0")?,
+                        ).map_err(|e| format!("Failed to parse field 0: {}", e))?,
                     ),
                 )
-            ).to_string()
+            ),
         );
     }
 
     #[test]
     fn tuple() {
-        assert_eq!(
+        comp(
             gen_value(
                 "(a)(b)",
                 &syn::parse2(TokenStream::from_str("struct Parsed((String, u32));").unwrap()).unwrap(),
-            ).to_string(),
+            ),
             quote!(
                 Ok(
                     Parsed(
                         (
-                            String::from_str(
+                            <String as std::str::FromStr>::from_str(
                                 caps_.get(1usize).map(|m| m.as_str()).unwrap_or(""),
-                            ).context("Failed to parse field 0")?,
-                            u32::from_str(
+                            ).map_err(|e| format!("Failed to parse field 0: {}", e))?,
+                            <u32 as std::str::FromStr>::from_str(
                                 caps_.get(2usize).map(|m| m.as_str()).unwrap_or(""),
-                            ).context("Failed to parse field 1")?,
+                            ).map_err(|e| format!("Failed to parse field 1: {}", e))?,
                         ),
                     ),
                 )
-            ).to_string()
+            ),
         );
     }
 
     #[test]
     fn struct_() {
-        assert_eq!(
+        comp(
             gen_value(
                 "(?P<a>a)(?P<b>b)",
                 &syn::parse2(TokenStream::from_str("struct Parsed { b: u32, a: String }").unwrap()).unwrap(),
-            ).to_string(),
+            ),
             quote!(Ok(Parsed {
-                b: u32::from_str(
+                b: <u32 as std::str::FromStr>::from_str(
                     caps_.get(2usize).map(|m| m.as_str()).unwrap_or(""),
-                ).context("Failed to parse field b")?,
-                a: String::from_str(
+                ).map_err(|e| format!("Failed to parse field b: {}", e))?,
+                a: <String as std::str::FromStr>::from_str(
                     caps_.get(1usize).map(|m| m.as_str()).unwrap_or(""),
-                ).context("Failed to parse field a")?,
-            })).to_string()
+                ).map_err(|e| format!("Failed to parse field a: {}", e))?,
+            })),
         );
     }
 }
