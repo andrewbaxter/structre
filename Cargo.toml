@@ -16,7 +16,5 @@ default = ["unicode"]
 unicode = ["structre_proc_macros/unicode", "regex/unicode"]
 
 [dependencies]
-anyhow = "1.0.66"
-once_cell = "1.16.0"
 regex = { version = "1.7.0", default-features = false, features = ["std"] }
 structre_proc_macros = { path = "src/proc_macros", version = "0.0.1" }
