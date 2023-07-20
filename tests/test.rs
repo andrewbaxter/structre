@@ -6,7 +6,7 @@ fn match_() {
     #[structre("(a)(44)")]
     struct Parsed(String, u32);
 
-    let pre = ParsedFromRegex::new();
+    let pre = Parsed::parser();
     let v = pre.parse("a44").unwrap();
     assert_eq!(v.0, "a");
     assert_eq!(v.1, 44);
@@ -21,7 +21,7 @@ fn named() {
         b: u32,
     }
 
-    let pre = ParsedFromRegex::new();
+    let pre = Parsed::parser();
     let v = pre.parse("a44").unwrap();
     assert_eq!(v.a, "a");
     assert_eq!(v.b, 44);
@@ -33,7 +33,7 @@ fn uncapture() {
     #[structre("(?:(a))")]
     struct Parsed(String);
 
-    let pre = ParsedFromRegex::new();
+    let pre = Parsed::parser();
     let v = pre.parse("a").unwrap();
     assert_eq!(v.0, "a");
 }
@@ -46,7 +46,7 @@ fn uncapture_named() {
         a: String,
     }
 
-    let pre = ParsedFromRegex::new();
+    let pre = Parsed::parser();
     let v = pre.parse("a").unwrap();
     assert_eq!(v.a, "a");
 }

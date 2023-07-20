@@ -68,13 +68,16 @@ impl<'a> Data<'a> {
                     out.push(quote!((#(#child), *)));
                 },
                 ty => {
-                    let err_lit = format!("Failed to parse field {}: {{}}", i);
+                    let i_str = i.to_string();
                     *i += 1;
                     out.push(
                         quote!(
                             < #ty as std:: str:: FromStr >:: from_str(
                                 caps_.get(#i).map(|m| m.as_str()).unwrap_or("")
-                            ).map_err(|e| format!(#err_lit, e)) ?
+                            ).map_err(| e | structre:: Error:: Field {
+                                field: #i_str,
+                                error: e.to_string()
+                            }) ?
                         ),
                     );
                 },
@@ -91,19 +94,22 @@ impl<'a> Data<'a> {
                     self.named_captures.keys().into_iter().map(&String::to_string).collect::<HashSet<String>>();
                 for field in &n.named {
                     let name = field.ident.as_ref().unwrap();
+                    let name_str = name.to_string();
                     let i = match self.named_captures.get(&name.to_string()) {
                         Some(c) => *c,
                         None => panic!("No named capture for field {}", name),
                     };
                     keys.remove(&name.to_string());
                     let ty = &field.ty;
-                    let err_lit = format!("Failed to parse field {}: {{}}", name);
                     let i = i + 1;
                     field_tokens.push(
                         quote!(
                             #name:< #ty as std:: str:: FromStr >:: from_str(
                                 caps_.get(#i).map(|m| m.as_str()).unwrap_or("")
-                            ).map_err(|e| format!(#err_lit, e)) ?
+                            ).map_err(| e | structre:: Error:: Field {
+                                field: #name_str,
+                                error: e.to_string()
+                            }) ?
                         ),
                     );
                 }
@@ -162,13 +168,15 @@ fn gen_impls(regex_raw: &str, ast: syn::DeriveInput) -> TokenStream {
     #[cfg(feature = "unicode")]
     out.push(quote!{
         #vis struct #name_parser(structre::UnicodeRegex);
-        impl #name_parser {
-            #vis fn new() -> Self {
-                Self(structre:: UnicodeRegex:: new(#regex_raw).unwrap())
+        impl #name {
+            #vis fn parser() -> #name_parser {
+                #name_parser(structre:: UnicodeRegex:: new(#regex_raw).unwrap())
             }
+        }
+        impl #name_parser {
             #vis fn parse(&self, input: &str) -> Result < #name,
-            String > {
-                let caps_ = self.0.captures(input).ok_or_else(|| std::string::ToString::to_string("No match"))?;
+            structre:: Error > {
+                let caps_ = self.0.captures(input).ok_or(structre::Error::NoMatch)?;
                 #value
             }
         }
@@ -222,7 +230,10 @@ mod tests {
                     Parsed(
                         <String as std::str::FromStr>::from_str(
                             caps_.get(1usize).map(|m| m.as_str()).unwrap_or(""),
-                        ).map_err(|e| format!("Failed to parse field 0: {}", e))?,
+                        ).map_err(|e| structre::Error::Field {
+                            field: "0",
+                            error: e.to_string(),
+                        })?,
                     ),
                 )
             ),
@@ -242,10 +253,16 @@ mod tests {
                         (
                             <String as std::str::FromStr>::from_str(
                                 caps_.get(1usize).map(|m| m.as_str()).unwrap_or(""),
-                            ).map_err(|e| format!("Failed to parse field 0: {}", e))?,
+                            ).map_err(|e| structre::Error::Field {
+                                field: "0",
+                                error: e.to_string(),
+                            })?,
                             <u32 as std::str::FromStr>::from_str(
                                 caps_.get(2usize).map(|m| m.as_str()).unwrap_or(""),
-                            ).map_err(|e| format!("Failed to parse field 1: {}", e))?,
+                            ).map_err(|e| structre::Error::Field {
+                                field: "1",
+                                error: e.to_string(),
+                            })?,
                         ),
                     ),
                 )
@@ -263,10 +280,16 @@ mod tests {
             quote!(Ok(Parsed {
                 b: <u32 as std::str::FromStr>::from_str(
                     caps_.get(2usize).map(|m| m.as_str()).unwrap_or(""),
-                ).map_err(|e| format!("Failed to parse field b: {}", e))?,
+                ).map_err(|e| structre::Error::Field {
+                    field: "b",
+                    error: e.to_string(),
+                })?,
                 a: <String as std::str::FromStr>::from_str(
                     caps_.get(1usize).map(|m| m.as_str()).unwrap_or(""),
-                ).map_err(|e| format!("Failed to parse field a: {}", e))?,
+                ).map_err(|e| structre::Error::Field {
+                    field: "a",
+                    error: e.to_string(),
+                })?,
             })),
         );
     }

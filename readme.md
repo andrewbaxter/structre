@@ -24,16 +24,16 @@ struct KV {
 }
 ```
 
-The parser is named `KVFromRegex`.
-
 Instantiate the parser and use it like:
 
 ```
-let kv_parser = KVFromRegex::new();
+let kv_parser = KV::parser();
 let m: KV = kv_parser.parse("hi: 39393")?;
 ```
 
-`parse` returns a Result. An `Err` is only returned in the case that there's no match or one of the field's `from_str` returns an `Err`. Per the preceding, if you only have `String` fields an `Err` always means no match, so you can treat it as a `None`.
+The `structre::Error::Field` result only occurs if a field's `from_str` method fails - if all of your fields are strings, you can only get `Error::NoMatch`.
+
+The parser type is suffixed with `FromRegex`: `KVFromRegex`.
 
 # Supported types
 
@@ -62,4 +62,4 @@ As noted above, not much type available so only the structure above can be check
 
 I was hoping to be able to ensure that the regex has valid characters for numbers, but due to the above and the difficulty of reasoning about the contents of regex ASTs I had to scrap that.
 
-Non-unicode parsing isn't currently supported. I couldn't find an ascii float parsing library and this isn't maximally optimized in the first place due to the use of `anyhow`. If this is important and you have a vision of how it could work please raise an issue!
+Non-unicode parsing isn't currently supported. I couldn't find an ascii float parsing library. If this is important and you have a vision of how it could work please raise an issue!

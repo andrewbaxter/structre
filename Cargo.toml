@@ -1,6 +1,6 @@
 [package]
 name = "structre"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 license = "ISC"
 description = "Static-checked parsing of regexes into structs"
@@ -17,4 +17,4 @@ unicode = ["structre_proc_macros/unicode", "regex/unicode"]
 
 [dependencies]
 regex = { version = "1.7.0", default-features = false, features = ["std"] }
-structre_proc_macros = { path = "src/proc_macros", version = "0.0.2" }
+structre_proc_macros = { path = "src/proc_macros", version = "0.0.3" }
