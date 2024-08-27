@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["crates/structre", "crates/structre_proc_macros"]
+members = ["crates/*"]
 
 [workspace.package]
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "ISC"
 repository = "https://github.com/andrewbaxter/structre"

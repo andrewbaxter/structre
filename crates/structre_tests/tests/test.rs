@@ -1,6 +1,10 @@
+#![cfg(test)]
+
+extern crate structre;
+
 use {
-    structre::structre,
     std::str::FromStr,
+    structre::structre,
 };
 
 #[test]

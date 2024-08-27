@@ -590,10 +590,10 @@ fn gen_root(regex_span: Span, regex_raw: &str, ast: syn::DeriveInput) -> Result<
             type Err = structre::Error;
             fn from_str(input:& str) -> Result < #name,
             structre:: Error > {
-                #[
-                    structre::static_init::dynamic
-                ] static RE: structre:: regex:: Regex = regex:: Regex:: new(#regex_raw).unwrap();
-                let captures = RE.captures(input).ok_or(structre::Error::NoMatch)?;
+                static RE: std::sync::OnceLock<structre::regex::Regex> = std::sync::OnceLock::new();
+                let captures = RE.get_or_init(
+                    || structre:: regex:: Regex:: new(#regex_raw).unwrap()
+                ).captures(input).ok_or(structre::Error::NoMatch) ?;
                 #root
             }
         }

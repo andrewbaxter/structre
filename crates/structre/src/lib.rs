@@ -5,7 +5,6 @@ use {
 };
 pub use {
     structre_proc_macros::structre,
-    static_init,
     regex,
 };
 

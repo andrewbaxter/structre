@@ -9,5 +9,4 @@ readme.workspace = true
 
 [dependencies]
 regex = { version = "1", default-features = false, features = ["std"] }
-static_init = "1"
-structre_proc_macros = { path = "../structre_proc_macros", version = "=0.1.1" }
+structre_proc_macros = { path = "../structre_proc_macros", version = "=0.1.2" }

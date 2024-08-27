@@ -1,0 +1,6 @@
+[package]
+name = "structre_tests"
+publish = false
+
+[dependencies]
+structre = { path = "../structre" }
