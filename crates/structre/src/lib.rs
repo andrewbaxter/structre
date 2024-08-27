@@ -1,9 +1,13 @@
-use std::{
-    fmt::Display,
+use {
+    std::{
+        fmt::Display,
+    },
 };
-pub use structre_proc_macros::structre;
-#[cfg(feature = "unicode")]
-pub use regex::Regex as UnicodeRegex;
+pub use {
+    structre_proc_macros::structre,
+    static_init,
+    regex,
+};
 
 #[derive(Debug)]
 pub enum Error {

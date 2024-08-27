@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/structre", "crates/structre_proc_macros"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "ISC"
 repository = "https://github.com/andrewbaxter/structre"

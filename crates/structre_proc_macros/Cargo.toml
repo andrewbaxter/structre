@@ -11,10 +11,6 @@ readme.workspace = true
 proc-macro = true
 path = "mod.rs"
 
-[features]
-default = ["unicode"]
-unicode = []
-
 [dependencies]
 flowcontrol = "0.2"
 litrs = "0.4"

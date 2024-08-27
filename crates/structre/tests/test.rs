@@ -3,7 +3,6 @@ use {
     std::str::FromStr,
 };
 
-#[cfg(feature = "unicode")]
 #[test]
 fn match_() {
     #[structre("(a)(44)")]
@@ -14,7 +13,6 @@ fn match_() {
     assert_eq!(v.1, 44);
 }
 
-#[cfg(feature = "unicode")]
 #[test]
 fn named() {
     #[structre("(?P<a>a)(?P<b>44)")]
@@ -28,7 +26,6 @@ fn named() {
     assert_eq!(v.b, 44);
 }
 
-#[cfg(feature = "unicode")]
 #[test]
 fn uncapture() {
     #[structre("(?:(a))")]
@@ -38,7 +35,6 @@ fn uncapture() {
     assert_eq!(v.0, "a");
 }
 
-#[cfg(feature = "unicode")]
 #[test]
 fn uncapture_named() {
     #[structre("(?:(?P<a>a))")]
@@ -50,7 +46,6 @@ fn uncapture_named() {
     assert_eq!(v.a, "a");
 }
 
-#[cfg(feature = "unicode")]
 #[test]
 fn test_enum() {
     #[structre("(?P<A>a)|(?P<b>b)")]

@@ -585,13 +585,14 @@ fn gen_root(regex_span: Span, regex_raw: &str, ast: syn::DeriveInput) -> Result<
     };
     let name = &ast.ident;
     let mut out = vec![ast.to_token_stream()];
-    #[cfg(feature = "unicode")]
     out.push(quote!{
         impl std:: str:: FromStr for #name {
             type Err = structre::Error;
             fn from_str(input:& str) -> Result < #name,
             structre:: Error > {
-                #[static_init::dynamic] static RE: regex:: Regex = regex:: Regex:: new(#regex_raw).unwrap();
+                #[
+                    structre::static_init::dynamic
+                ] static RE: structre:: regex:: Regex = regex:: Regex:: new(#regex_raw).unwrap();
                 let captures = RE.captures(input).ok_or(structre::Error::NoMatch)?;
                 #root
             }
