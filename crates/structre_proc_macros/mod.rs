@@ -183,10 +183,14 @@ fn gen_named_fields(
                 }
                 field_tokens.push(quote!(#name: match captures.get(#cap_index) {
                     Some(m) => {
-                        < #p as std:: str:: FromStr >:: from_str(m.as_str()).map_err(| e | structre:: Error:: Field {
-                            field: #path,
-                            error: e.to_string()
-                        }) ?
+                        Some(
+                            < #p as std:: str:: FromStr >:: from_str(
+                                m.as_str()
+                            ).map_err(| e | structre:: Error:: Field {
+                                field: #path,
+                                error: e.to_string()
+                            }) ?
+                        )
                     },
                     None => None,
                 }));
@@ -250,10 +254,14 @@ fn gen_unnamed_fields(
                 }
                 out.push(quote!(match captures.get(#cap_index) {
                     Some(m) => {
-                        < #p as std:: str:: FromStr >:: from_str(m.as_str()).map_err(| e | structre:: Error:: Field {
-                            field: #path,
-                            error: e.to_string()
-                        }) ?
+                        Some(
+                            < #p as std:: str:: FromStr >:: from_str(
+                                m.as_str()
+                            ).map_err(| e | structre:: Error:: Field {
+                                field: #path,
+                                error: e.to_string()
+                            }) ?
+                        )
                     },
                     None => None,
                 }));

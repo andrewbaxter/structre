@@ -51,6 +51,17 @@ fn uncapture_named() {
 }
 
 #[test]
+fn test_struct_opt() {
+    #[structre("(?P<a>a)?")]
+    struct Parsed {
+        a: Option<String>,
+    }
+
+    let v = Parsed::from_str("a").unwrap();
+    assert_eq!(v.a.as_ref().map(|x| x.as_str()), Some("a"));
+}
+
+#[test]
 fn test_enum() {
     #[structre("(?P<A>a)|(?P<b>b)")]
     #[derive(PartialEq, Eq, Debug)]
