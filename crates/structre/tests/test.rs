@@ -1,4 +1,7 @@
-use structre::structre;
+use {
+    structre::structre,
+    std::str::FromStr,
+};
 
 #[cfg(feature = "unicode")]
 #[test]
@@ -6,8 +9,7 @@ fn match_() {
     #[structre("(a)(44)")]
     struct Parsed(String, u32);
 
-    let pre = Parsed::parser();
-    let v = pre.parse("a44").unwrap();
+    let v = Parsed::from_str("a44").unwrap();
     assert_eq!(v.0, "a");
     assert_eq!(v.1, 44);
 }
@@ -21,8 +23,7 @@ fn named() {
         b: u32,
     }
 
-    let pre = Parsed::parser();
-    let v = pre.parse("a44").unwrap();
+    let v = Parsed::from_str("a44").unwrap();
     assert_eq!(v.a, "a");
     assert_eq!(v.b, 44);
 }
@@ -33,8 +34,7 @@ fn uncapture() {
     #[structre("(?:(a))")]
     struct Parsed(String);
 
-    let pre = Parsed::parser();
-    let v = pre.parse("a").unwrap();
+    let v = Parsed::from_str("a").unwrap();
     assert_eq!(v.0, "a");
 }
 
@@ -46,7 +46,22 @@ fn uncapture_named() {
         a: String,
     }
 
-    let pre = Parsed::parser();
-    let v = pre.parse("a").unwrap();
+    let v = Parsed::from_str("a").unwrap();
     assert_eq!(v.a, "a");
+}
+
+#[cfg(feature = "unicode")]
+#[test]
+fn test_enum() {
+    #[structre("(?P<A>a)|(?P<b>b)")]
+    #[derive(PartialEq, Eq, Debug)]
+    enum Parsed {
+        A(String),
+        B {
+            b: String,
+        },
+    }
+
+    let v = Parsed::from_str("a").unwrap();
+    assert_eq!(v, Parsed::A("a".to_string()));
 }

@@ -1,0 +1,27 @@
+[package]
+name = "structre_proc_macros"
+description = "Static-checked parsing of regexes into structs (helper crate)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+
+[lib]
+proc-macro = true
+path = "mod.rs"
+
+[features]
+default = ["unicode"]
+unicode = []
+
+[dependencies]
+flowcontrol = "0.2"
+litrs = "0.4"
+proc-macro2 = "1"
+quote = "1"
+regex-syntax = "0.8"
+syn = "2"
+
+[dev-dependencies]
+genemichaels = "0.5.0-pre1"

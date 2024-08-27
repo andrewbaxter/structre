@@ -1,0 +1,17 @@
+[package]
+name = "structre"
+description = "Static-checked parsing of regexes into structs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+
+[features]
+default = ["unicode"]
+unicode = ["structre_proc_macros/unicode", "regex/unicode"]
+
+[dependencies]
+regex = { version = "1", default-features = false, features = ["std"] }
+static_init = "1"
+structre_proc_macros = { path = "../structre_proc_macros" }
