@@ -1,3 +1,8 @@
+<table align="right" margin="1em"><tr>
+<td><a href="https://crates.io/crates/structre"><img alt="crates.io" src="https://img.shields.io/crates/v/structre"></a></td>
+<td><a href="https://docs.rs/structre"><img alt="docs.rs" src="https://img.shields.io/docsrs/structre"></td></a>
+</tr></table>
+
 Statically-checked regex parsing into structs.
 
 This avoids common regex pitfalls like
