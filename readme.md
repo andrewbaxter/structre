@@ -11,6 +11,8 @@ This avoids common regex pitfalls like
 - Trying to get nonexistent captures
 - Desync of capture names in regex and the names used to fetch fields
 
+(Note this isn't like serde: you start with a regex, then write a struct to match the regex. It doesn't work on arbitrary structures)
+
 # Installation
 
 ```sh
