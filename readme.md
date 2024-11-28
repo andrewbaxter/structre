@@ -21,7 +21,7 @@ cargo add structre
 
 # Use
 
-Define a structure and use this macro to generate a parser helper struct:
+Define a structure and use this macro to implement `from_str`:
 
 ```
 #[structre("(?P<key>[^:]+): (?P<value>\\d+)")]
@@ -37,15 +37,9 @@ let m = KV::from_str("hi: 39393")?;
 
 `from_str` returns a result with error type `structre::Error`. The `structre::Error::Field` result only occurs if a field's `from_str` method fails - if all of your fields are strings, you can only get `structre::Error::NoMatch`.
 
-# Supported structures
+# Expressing regexes with types
 
-Structs and enums both work, although there are some slight nuances.
-
-- In structures:
-
-  All captures must correspond to a field. Named captures correspond to named fields, unnamed captures correspond to unnamed fields (ex: tuple elements). Repetitions, `?`, and `|` will make a capture optional so the corresponding field must also be optional.
-
-- In enums:
+- Alternate (`|`) captures can be parsed as enums
 
   All variants must either
 
@@ -80,6 +74,10 @@ Structs and enums both work, although there are some slight nuances.
     ```
 
     The enum variant is determined by the presence of either the `A` capture or `B` capture.
+
+- Non-alternate captures:
+
+  All captures must correspond to a field. Named captures correspond to named fields, unnamed captures correspond to unnamed fields (ex: tuple elements). Repetitions, `?`, and `|` will make a capture optional so the corresponding field must also be optional.
 
 The following types are supported for fields:
 
