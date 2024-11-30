@@ -16,7 +16,9 @@ use {
         Ast as ReAst,
         GroupKind,
     },
-    std::collections::HashMap,
+    std::{
+        collections::HashMap,
+    },
     syn::{
         self,
         parse_macro_input,
@@ -89,10 +91,118 @@ fn flatten_re(out: &mut ReFlatData, re: &ReAst, optional_context: bool) {
     }
 }
 
-enum SimpleType<'a> {
-    Option(&'a Type),
-    Tuple(Vec<&'a Type>),
-    Simple(&'a Type),
+// Someone please save me
+#[derive(Clone)]
+enum SimpleSimpleTypeType {
+    TryFrom,
+    FromStr,
+}
+
+#[derive(Clone)]
+struct SimpleSimpleType {
+    span: Span,
+    type_: TokenStream,
+    typetype: SimpleSimpleTypeType,
+}
+
+#[derive(Clone)]
+enum SimpleType {
+    Simple(SimpleSimpleType),
+    Option(SimpleSimpleType),
+    Tuple(Vec<SimpleType>),
+}
+
+fn simple_simple_type(ty: &Type) -> SimpleSimpleType {
+    let ty_tokens = ty.to_token_stream();
+    let typetype;
+    match ty_tokens.to_string().as_str() {
+        "u8" |
+        "u16" |
+        "u32" |
+        "u64" |
+        "u128" |
+        "usize" |
+        "i8" |
+        "i16" |
+        "i32" |
+        "i64" |
+        "i128" |
+        "isize" |
+        "f8" |
+        "f16" |
+        "f32" |
+        "f64" |
+        "f128" |
+        "bool" |
+        "char" |
+        "std::net::IpAddr" |
+        "net::IpAddr" |
+        "IpAddr" |
+        "std::net::Ipv4Addr" |
+        "net::Ipv4Addr" |
+        "Ipv4Addr" |
+        "std::net::Ipv6Addr" |
+        "net::Ipv6Addr" |
+        "Ipv6Addr" |
+        "std::net::SocketAddr" |
+        "net::SocketAddr" |
+        "SocketAddr" |
+        "std::net::SocketAddrV4" |
+        "net::SocketAddrV4" |
+        "SocketAddrV4" |
+        "std::net::SocketAddrV6" |
+        "net::SocketAddrV6" |
+        "SocketAddrV6" |
+        "std::ffi::OsString" |
+        "ffi::OsString" |
+        "OsString" |
+        "std::num::NonZero<u8>" |
+        "std::num::NonZero<u16>" |
+        "std::num::NonZero<u32>" |
+        "std::num::NonZero<u64>" |
+        "std::num::NonZero<u128>" |
+        "std::num::NonZero<usize>" |
+        "std::num::NonZero<i8>" |
+        "std::num::NonZero<i16>" |
+        "std::num::NonZero<i32>" |
+        "std::num::NonZero<i64>" |
+        "std::num::NonZero<i128>" |
+        "std::num::NonZero<isize>" |
+        "num::NonZero<u8>" |
+        "num::NonZero<u16>" |
+        "num::NonZero<u32>" |
+        "num::NonZero<u64>" |
+        "num::NonZero<u128>" |
+        "num::NonZero<usize>" |
+        "num::NonZero<i8>" |
+        "num::NonZero<i16>" |
+        "num::NonZero<i32>" |
+        "num::NonZero<i64>" |
+        "num::NonZero<i128>" |
+        "num::NonZero<isize>" |
+        "NonZero<u8>" |
+        "NonZero<u16>" |
+        "NonZero<u32>" |
+        "NonZero<u64>" |
+        "NonZero<u128>" |
+        "NonZero<usize>" |
+        "NonZero<i8>" |
+        "NonZero<i16>" |
+        "NonZero<i32>" |
+        "NonZero<i64>" |
+        "NonZero<i128>" |
+        "NonZero<isize>" => {
+            typetype = SimpleSimpleTypeType::FromStr;
+        },
+        _ => {
+            typetype = SimpleSimpleTypeType::TryFrom;
+        },
+    }
+    return SimpleSimpleType {
+        span: ty.span(),
+        type_: ty_tokens,
+        typetype: typetype,
+    };
 }
 
 /// Reduce a type to a handleable, semantically meaningful type (i.e. 1-tuples are
@@ -117,29 +227,12 @@ fn simple_type(ty: &Type) -> Result<SimpleType, syn::Error> {
                 let syn::GenericArgument::Type(arg_type) = args.args.get(0).unwrap() else {
                     unreachable!();
                 };
-                let mut at = arg_type;
-                let inner = loop {
-                    match simple_type(at)? {
-                        SimpleType::Option(_) => {
-                            // If None, is the outer Option None or the inner Option None?
-                            return Err(syn::Error::new(at.span(), "Options within options are ambiguous and not supported"));
-                        },
-                        SimpleType::Tuple(t) => {
-                            if t.len() != 1 {
-                                // If mixed Some/None how does that convert to single Option?
-                                return Err(syn::Error::new(at.span(), "Tuples within options are ambiguous and not supported"));
-                            }
-                            at = t.get(0).unwrap();
-                        },
-                        SimpleType::Simple(t) => break t,
-                    }
-                };
-                break Some(inner);
+                break Some(arg_type);
             };
             if let Some(opt_inner) = opt {
-                return Ok(SimpleType::Option(opt_inner));
+                return Ok(SimpleType::Option(simple_simple_type(opt_inner)));
             } else {
-                return Ok(SimpleType::Simple(ty));
+                return Ok(SimpleType::Simple(simple_simple_type(ty)));
             }
         },
         Type::Paren(t) => {
@@ -149,15 +242,44 @@ fn simple_type(ty: &Type) -> Result<SimpleType, syn::Error> {
             return Ok(simple_type(&t.elem)?);
         },
         Type::Tuple(t) => {
-            return Ok(SimpleType::Tuple(t.elems.iter().collect()));
+            let mut children = vec![];
+            for e in &t.elems {
+                children.push(simple_type(e)?);
+            }
+            return Ok(SimpleType::Tuple(children));
         },
-        _ => {
-            return Err(syn::Error::new(ty.span(), "This type does not support parsing from regex"));
+        Type::Reference(_) => {
+            return Ok(SimpleType::Simple(simple_simple_type(ty)));
+        },
+        _ => { },
+    }
+    return Err(syn::Error::new(ty.span(), "This type does not support parsing from regex"));
+}
+
+fn gen_from_capture(str_lifetime: &TokenStream, path: &str, t: &SimpleSimpleType, cap: TokenStream) -> TokenStream {
+    let p = &t.type_;
+    match &t.typetype {
+        SimpleSimpleTypeType::TryFrom => {
+            return quote!(
+                < #p as std:: convert:: TryFrom <& #str_lifetime str >>:: try_from(
+                    #cap
+                ).map_err(| e | structre:: Error:: Field {
+                    field: #path,
+                    error: e.to_string()
+                }) ?
+            );
+        },
+        SimpleSimpleTypeType::FromStr => {
+            return quote!(< #p as std:: str:: FromStr >:: from_str(#cap).map_err(| e | structre:: Error:: Field {
+                field: #path,
+                error: e.to_string()
+            }) ?);
         },
     }
 }
 
 fn gen_named_fields(
+    str_lifetime: &TokenStream,
     re_flat: &mut ReFlatData,
     next_unnamed_index: &mut usize,
     path: &str,
@@ -172,32 +294,30 @@ fn gen_named_fields(
             SimpleType::Option(p) => {
                 let Some(cap) = re_flat.named_captures.remove(&name.to_string()) else {
                     return Err(
-                        syn::Error::new(field.span(), format!("No named capture `{}` for field `{}`", name_str, path)),
+                        syn::Error::new(p.span, format!("No named capture `{}` for field `{}`", name_str, path)),
                     );
                 };
                 let cap_index = cap.index;
                 if !cap.optional {
                     return Err(
-                        syn::Error::new(field.span(), "Field is optional but corresponding capture always matches"),
+                        syn::Error::new(p.span, "Field is optional but corresponding capture always matches"),
                     );
                 }
+                let from_cap = gen_from_capture(str_lifetime, &path, &p, quote!(m.as_str()));
                 field_tokens.push(quote!(#name: match captures.get(#cap_index) {
-                    Some(m) => {
-                        Some(
-                            < #p as std:: str:: FromStr >:: from_str(
-                                m.as_str()
-                            ).map_err(| e | structre:: Error:: Field {
-                                field: #path,
-                                error: e.to_string()
-                            }) ?
-                        )
-                    },
+                    Some(m) => Some(#from_cap),
                     None => None,
                 }));
             },
             SimpleType::Tuple(p) => {
                 let parse_tuple =
-                    gen_unnamed_fields(re_flat, next_unnamed_index, &path, &mut p.iter().map(|x| *x))?;
+                    gen_unnamed_fields(
+                        str_lifetime,
+                        re_flat,
+                        next_unnamed_index,
+                        &path,
+                        &mut p.iter().map(|x| x).cloned(),
+                    )?;
                 field_tokens.push(quote!(#name:(#parse_tuple)));
             },
             SimpleType::Simple(p) => {
@@ -215,16 +335,9 @@ fn gen_named_fields(
                         ),
                     );
                 }
-                field_tokens.push(
-                    quote!(
-                        #name:< #p as std:: str:: FromStr >:: from_str(
-                            captures.get(#cap_index).unwrap().as_str()
-                        ).map_err(| e | structre:: Error:: Field {
-                            field: #path,
-                            error: e.to_string()
-                        }) ?
-                    ),
-                );
+                let from_cap =
+                    gen_from_capture(str_lifetime, &path, &p, quote!(captures.get(#cap_index).unwrap().as_str()));
+                field_tokens.push(quote!(#name: #from_cap));
             },
         }
     }
@@ -232,67 +345,53 @@ fn gen_named_fields(
 }
 
 fn gen_unnamed_fields(
+    str_lifetime: &TokenStream,
     re_flat: &mut ReFlatData,
     next_unnamed_index: &mut usize,
     path: &str,
-    fields: &mut dyn Iterator<Item = &Type>,
+    fields: &mut dyn Iterator<Item = SimpleType>,
 ) -> Result<TokenStream, syn::Error> {
     let mut out = vec![];
     for (field_index, ty) in fields.enumerate() {
         let path = format!("{}.{}", path, field_index);
-        match simple_type(ty)? {
+        match ty {
             SimpleType::Option(p) => {
                 let cap_index = *next_unnamed_index;
                 *next_unnamed_index += 1;
                 let Some(cap) = re_flat.unnamed_captures.remove(&cap_index) else {
-                    return Err(syn::Error::new(ty.span(), format!("Missing unnamed capture for `{}`", path)));
+                    return Err(syn::Error::new(p.span, format!("Missing unnamed capture for `{}`", path)));
                 };
                 if !cap.optional {
                     return Err(
-                        syn::Error::new(ty.span(), "Field is optional but corresponding capture always matches"),
+                        syn::Error::new(p.span, "Field is optional but corresponding capture always matches"),
                     );
                 }
+                let from_cap = gen_from_capture(str_lifetime, &path, &p, quote!(m.as_str()));
                 out.push(quote!(match captures.get(#cap_index) {
                     Some(m) => {
-                        Some(
-                            < #p as std:: str:: FromStr >:: from_str(
-                                m.as_str()
-                            ).map_err(| e | structre:: Error:: Field {
-                                field: #path,
-                                error: e.to_string()
-                            }) ?
-                        )
+                        Some(#from_cap)
                     },
                     None => None,
                 }));
             },
             SimpleType::Tuple(p) => {
-                let child = gen_unnamed_fields(re_flat, next_unnamed_index, &path, &mut p.iter().map(|x| *x))?;
+                let child =
+                    gen_unnamed_fields(str_lifetime, re_flat, next_unnamed_index, &path, &mut p.iter().cloned())?;
                 out.push(quote!((#child)));
             },
             SimpleType::Simple(p) => {
                 let cap_index = *next_unnamed_index;
                 *next_unnamed_index += 1;
                 let Some(cap) = re_flat.unnamed_captures.remove(&cap_index) else {
-                    return Err(syn::Error::new(ty.span(), format!("Missing unnamed capture for `{}`", path)));
+                    return Err(syn::Error::new(p.span, format!("Missing unnamed capture for `{}`", path)));
                 };
                 if cap.optional {
                     return Err(
-                        syn::Error::new(
-                            ty.span(),
-                            "Field is not optional but corresponding capture optionally matches",
-                        ),
+                        syn::Error::new(p.span, "Field is not optional but corresponding capture optionally matches"),
                     );
                 }
                 out.push(
-                    quote!(
-                        < #p as std:: str:: FromStr >:: from_str(
-                            captures.get(#cap_index).unwrap().as_str()
-                        ).map_err(| e | structre:: Error:: Field {
-                            field: #path,
-                            error: e.to_string()
-                        }) ?
-                    ),
+                    gen_from_capture(str_lifetime, &path, &p, quote!(captures.get(#cap_index).unwrap().as_str())),
                 );
             },
         }
@@ -300,14 +399,20 @@ fn gen_unnamed_fields(
     return Ok(quote!(#(#out,) *));
 }
 
-fn gen_struct(re: &ReAst, ident: &Ident, struct_: &DataStruct) -> Result<TokenStream, syn::Error> {
+fn gen_struct(
+    str_lifetime: &TokenStream,
+    re: &ReAst,
+    ident: &Ident,
+    struct_: &DataStruct,
+) -> Result<TokenStream, syn::Error> {
     let mut re_flat = ReFlatData::default();
     flatten_re(&mut re_flat, re, false);
     let mut next_unnamed_index = 1;
     let path = ident.to_string();
     let out = match &struct_.fields {
         syn::Fields::Named(n) => {
-            let fields = gen_named_fields(&mut re_flat, &mut next_unnamed_index, &path, &mut n.named.iter())?;
+            let fields =
+                gen_named_fields(str_lifetime, &mut re_flat, &mut next_unnamed_index, &path, &mut n.named.iter())?;
             quote!({
                 #fields
             })
@@ -321,13 +426,13 @@ fn gen_struct(re: &ReAst, ident: &Ident, struct_: &DataStruct) -> Result<TokenSt
                     ),
                 );
             }
-            let field_tokens =
-                gen_unnamed_fields(
-                    &mut re_flat,
-                    &mut next_unnamed_index,
-                    &path,
-                    &mut u.unnamed.iter().map(|e| &e.ty),
-                )?;
+            let field_tokens = gen_unnamed_fields(str_lifetime, &mut re_flat, &mut next_unnamed_index, &path, &mut {
+                let mut out = vec![];
+                for n in &u.unnamed {
+                    out.push(simple_type(&n.ty)?);
+                }
+                out
+            }.into_iter())?;
             quote!((#field_tokens))
         },
         syn::Fields::Unit => {
@@ -353,7 +458,12 @@ fn gen_struct(re: &ReAst, ident: &Ident, struct_: &DataStruct) -> Result<TokenSt
     return Ok(quote!(return Ok(#ident #out);));
 }
 
-fn gen_enum(re: &ReAst, ident: &Ident, enum_: &DataEnum) -> Result<TokenStream, syn::Error> {
+fn gen_enum(
+    str_lifetime: &TokenStream,
+    re: &ReAst,
+    ident: &Ident,
+    enum_: &DataEnum,
+) -> Result<TokenStream, syn::Error> {
     // Find the topmost re alternatives (variants)
     fn find_re_variants<'a>(re: &'a ReAst) -> Result<Option<&'a Vec<ReAst>>, String> {
         match re {
@@ -473,6 +583,7 @@ fn gen_enum(re: &ReAst, ident: &Ident, enum_: &DataEnum) -> Result<TokenStream, 
                         } 'matched_named {
                             let parse_fields =
                                 gen_named_fields(
+                                    str_lifetime,
                                     &mut re_flat,
                                     &mut next_unnamed_index,
                                     &format!("{}::{}", ident, variant_ident),
@@ -487,9 +598,10 @@ fn gen_enum(re: &ReAst, ident: &Ident, enum_: &DataEnum) -> Result<TokenStream, 
                     syn::Fields::Unnamed(fields) => {
                         superif!({
                             if fields.unnamed.len() == 1 {
-                                let mut at = &fields.unnamed.get(0).unwrap().ty;
+                                let root = simple_type(&fields.unnamed.get(0).unwrap().ty)?;
+                                let mut at = &root;
                                 loop {
-                                    match simple_type(at)? {
+                                    match at {
                                         SimpleType::Option(_) => break,
                                         SimpleType::Tuple(t) => {
                                             if t.len() == 1 {
@@ -523,7 +635,7 @@ fn gen_enum(re: &ReAst, ident: &Ident, enum_: &DataEnum) -> Result<TokenStream, 
                             parse_variant =
                                 quote!(
                                     #ident:: #variant_ident(
-                                        < #field_ty as std:: str:: FromStr >:: from_str(
+                                        < #field_ty as std:: convert:: TryFrom <& #str_lifetime str >>:: try_from(
                                             captures.get(#cap_index).unwrap().as_str()
                                         ).map_err(| e | structre:: Error:: Field {
                                             field: #path,
@@ -586,18 +698,47 @@ fn parse_re(regex_raw: &str) -> Result<ReAst, regex_syntax::ast::Error> {
 
 fn gen_root(regex_span: Span, regex_raw: &str, ast: syn::DeriveInput) -> Result<TokenStream, syn::Error> {
     let re = parse_re(regex_raw).map_err(|e| syn::Error::new(regex_span, e.to_string()))?;
-    let root = match &ast.data {
-        syn::Data::Struct(d) => gen_struct(&re, &ast.ident, d)?,
-        syn::Data::Enum(d) => gen_enum(&re, &ast.ident, d)?,
+    let type_generics;
+    if ast.generics.lt_token.is_some() {
+        type_generics = ast.generics.to_token_stream();
+    } else {
+        type_generics = quote!();
+    };
+    let no_lifetime;
+    let str_lifetime;
+    let impl_generics;
+    superif!({
+        if !ast.generics.lt_token.is_some() {
+            break 'no_lifetime;
+        };
+        let Some(l) = ast.generics.lifetimes().next() else {
+            break 'no_lifetime;
+        };
+        no_lifetime = false;
+        str_lifetime = l.to_token_stream();
+        impl_generics = ast.generics.to_token_stream();
+    } 'no_lifetime {
+        no_lifetime = true;
+        str_lifetime = quote!('structre);
+        impl_generics = quote!(< #str_lifetime >);
+    });
+    let root;
+    match &ast.data {
+        syn::Data::Struct(d) => {
+            root = gen_struct(&str_lifetime, &re, &ast.ident, d)?;
+        },
+        syn::Data::Enum(d) => {
+            root = gen_enum(&str_lifetime, &re, &ast.ident, d)?;
+        },
         syn::Data::Union(_) => return Err(syn::Error::new(ast.span(), "Union not supported")),
     };
     let name = &ast.ident;
     let mut out = vec![ast.to_token_stream()];
     out.push(quote!{
-        impl std:: str:: FromStr for #name {
-            type Err = structre::Error;
-            fn from_str(input:& str) -> Result < #name,
-            structre:: Error > {
+        impl #impl_generics std:: convert:: TryFrom <& #str_lifetime str > for #name #type_generics {
+            type Error = structre::Error;
+            fn try_from(input:& #str_lifetime str) -> Result < Self,
+            Self:: Error > {
                 static RE: std::sync::OnceLock<structre::regex::Regex> = std::sync::OnceLock::new();
                 let captures = RE.get_or_init(
                     || structre:: regex:: Regex:: new(#regex_raw).unwrap()
@@ -606,6 +747,17 @@ fn gen_root(regex_span: Span, regex_raw: &str, ast: syn::DeriveInput) -> Result<
             }
         }
     });
+    if no_lifetime {
+        out.push(quote!{
+            impl #impl_generics std:: str:: FromStr for #name #type_generics {
+                type Err = structre::Error;
+
+                fn from_str(input: &str) -> Result<Self, Self::Err> {
+                    return Self::try_from(input);
+                }
+            }
+        })
+    }
     return Ok(TokenStream::from_iter(out));
 }
 
@@ -649,7 +801,7 @@ mod tests {
             gen_struct,
             parse_re,
         },
-        genemichaels::FormatConfig,
+        genemichaels_lib::FormatConfig,
         proc_macro2::TokenStream,
         quote::{
             format_ident,
@@ -660,7 +812,7 @@ mod tests {
     fn comp(got: TokenStream, expected: TokenStream) {
         let cfg = FormatConfig::default();
         let try_format = |t: TokenStream| -> String {
-            match genemichaels::format_str(&quote!(fn x() {
+            match genemichaels_lib::format_str(&quote!(fn x() {
                 #t
             }).to_string(), &cfg) {
                 Ok(s) => return s.rendered,
@@ -675,6 +827,7 @@ mod tests {
     fn comp_struct(re: &str, ident: &str, rust: TokenStream, expected: TokenStream) {
         comp(
             gen_struct(
+                &quote!('zzz),
                 &parse_re(re).unwrap(),
                 &format_ident!("{}", ident),
                 &match syn::parse2::<syn::DeriveInput>(rust).unwrap().data {
@@ -689,6 +842,7 @@ mod tests {
     fn comp_enum(re: &str, ident: &str, rust: TokenStream, expected: TokenStream) {
         comp(
             gen_enum(
+                &quote!('zzz),
                 &parse_re(re).unwrap(),
                 &format_ident!("{}", ident),
                 &match syn::parse2::<syn::DeriveInput>(rust).unwrap().data {
@@ -727,7 +881,7 @@ mod tests {
             quote!{
                 return Ok(
                     Parsed(
-                        <String as std::str::FromStr>::from_str(
+                        <String as std::convert::TryFrom<&'zzz str>>::try_from(
                             captures.get(1usize).unwrap().as_str(),
                         ).map_err(|e| structre::Error::Field {
                             field: "Parsed.0",
@@ -751,7 +905,7 @@ mod tests {
             quote!{
                 return Ok(
                     Parsed(
-                        <String as std::str::FromStr>::from_str(
+                        <String as std::convert::TryFrom<&'zzz str>>::try_from(
                             captures.get(1usize).unwrap().as_str(),
                         ).map_err(|e| structre::Error::Field {
                             field: "Parsed.0",
@@ -782,7 +936,7 @@ mod tests {
                 return Ok(
                     Parsed(
                         (
-                            <String as std::str::FromStr>::from_str(
+                            <String as std::convert::TryFrom<&'zzz str>>::try_from(
                                 captures.get(1usize).unwrap().as_str(),
                             ).map_err(|e| structre::Error::Field {
                                 field: "Parsed.0.0",
@@ -821,7 +975,7 @@ mod tests {
                         field: "Parsed.b",
                         error: e.to_string(),
                     })?,
-                    a: <String as std::str::FromStr>::from_str(
+                    a: <String as std::convert::TryFrom<&'zzz str>>::try_from(
                         captures.get(1usize).unwrap().as_str(),
                     ).map_err(|e| structre::Error::Field {
                         field: "Parsed.a",
@@ -850,7 +1004,7 @@ mod tests {
                 if captures.get(1usize).is_some() {
                     return Ok(
                         Parsed::A(
-                            <String as std::str::FromStr>::from_str(
+                            <String as std::convert::TryFrom<&'zzz str>>::try_from(
                                 captures.get(1usize).unwrap().as_str(),
                             ).map_err(|e| structre::Error::Field {
                                 field: "Parsed::A",
@@ -862,7 +1016,7 @@ mod tests {
                 if captures.get(2usize).is_some() {
                     return Ok(
                         Parsed::B {
-                            b: <String as std::str::FromStr>::from_str(
+                            b: <String as std::convert::TryFrom<&'zzz str>>::try_from(
                                 captures.get(2usize).unwrap().as_str(),
                             ).map_err(|e| structre::Error::Field {
                                 field: "Parsed::B.b",
@@ -871,7 +1025,34 @@ mod tests {
                         },
                     );
                 }
+                unreachable!();
             },
         );
+    }
+
+    #[test]
+    fn test_borrowed() {
+        comp_struct(
+            //. .
+            "(?<x>.*)",
+            "Parsed",
+            quote!(
+                struct Parsed<'a> {
+                    x: &'a str,
+                }
+            ),
+            quote!{
+                return Ok(
+                    Parsed {
+                        x: <&'a str as std::convert::TryFrom<&'zzz str>>::try_from(
+                            captures.get(1usize).unwrap().as_str(),
+                        ).map_err(|e| structre::Error::Field {
+                            field: "Parsed.x",
+                            error: e.to_string(),
+                        })?,
+                    },
+                );
+            },
+        )
     }
 }

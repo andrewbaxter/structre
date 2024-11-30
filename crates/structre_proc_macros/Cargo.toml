@@ -20,4 +20,4 @@ regex-syntax = "0.8"
 syn = "2"
 
 [dev-dependencies]
-genemichaels = "0.5.0-pre1"
+genemichaels-lib = "0.5"

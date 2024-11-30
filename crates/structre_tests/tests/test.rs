@@ -3,6 +3,7 @@
 extern crate structre;
 
 use {
+    std::convert::TryFrom,
     std::str::FromStr,
     structre::structre,
 };
@@ -74,4 +75,15 @@ fn test_enum() {
 
     let v = Parsed::from_str("a").unwrap();
     assert_eq!(v, Parsed::A("a".to_string()));
+}
+
+#[test]
+fn test_borrowed() {
+    #[structre("(?<x>.*)")]
+    struct Parsed<'a> {
+        x: &'a str,
+    }
+
+    let v = Parsed::try_from("abcd").unwrap();
+    assert_eq!(v.x, "abcd");
 }
