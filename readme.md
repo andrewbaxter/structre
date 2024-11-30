@@ -21,7 +21,7 @@ cargo add structre
 
 # Use
 
-Define a structure and use this macro to implement `from_str`:
+Define a structure and use this macro to implement `TryFrom` (and as `FromStr` if the type has no lifetimes):
 
 ```
 #[structre("(?P<key>[^:]+): (?P<value>\\d+)")]
@@ -32,10 +32,10 @@ struct KV {
 ```
 
 ```
-let m = KV::from_str("hi: 39393")?;
+let m = KV::try_from("hi: 39393")?;
 ```
 
-`from_str` returns a result with error type `structre::Error`. The `structre::Error::Field` result only occurs if a field's `from_str` method fails - if all of your fields are strings, you can only get `structre::Error::NoMatch`.
+Both `try_from` and `from_str` returns a result with error type `structre::Error`. The `structre::Error::Field` result only occurs if a field's `from_str` method fails - if all of your fields are strings, you can only get `structre::Error::NoMatch`.
 
 # Expressing regexes with types
 
@@ -81,7 +81,13 @@ let m = KV::from_str("hi: 39393")?;
 
 The following types are supported for fields:
 
-- Simple types: any type implementing `std::str::FromStr`
+- Simple types: any type implementing `std::convert::TryFrom<&str>`
+
+  This includes `&str` if you want non-allocating parsing.
+
+- Simple types: Standard library/core types that implement `std::str::FromStr`
+
+  The standard library doesn't implement `TryFrom<&str>` for any core types currently so an internal database is used to (roughly) identify that a field has a core type and switches to `FromStr` for that.
 
 - Options with a simple type inside
 
@@ -96,3 +102,11 @@ I was hoping to be able to ensure that the regex has valid characters for number
 Non-unicode parsing isn't currently supported. One issue is I couldn't find an ascii float parsing library. If this is important and you have a vision of how it could work please raise an issue!
 
 The regex is lazily compiled and stored statically. Originally I made the regex compilation manual and explicit, but this made the ergonomics much worse (managing parsers) and prevented things like implementing `FromStr`. In `0.1.0` I changed it to statically instantiate the regex. I'd be open to making this configurable in the future, either having an option to manually manage the compiled regex or else compiling on every parse for rarely used regexes.
+
+~~String references and other reference types~~ Reference types are now supported via `TryFrom<&T>` starting in `0.2.0`! There was a large discussion
+at <https://www.reddit.com/r/rust/comments/1h2f6lt/structre_staticchecked_parsing_of_regexes_into/>. In the end I decided to go with basing all use around `TryFrom` instead of `FromStr` with special cases:
+
+- Both approaches have special cases: The former has a database of standard library/core types that don't support `TryFrom` to switch to `FromStr`, the latter has carveouts for `&str` and possibly other types (`Cow`?)
+- I think the code for identifing special cases in the latter is more difficult; in the former, all the types are non-generic non-reference types, most without `::` paths
+- Hopefully `TryFrom` support will grow, and at some point the carveouts won't be needed - it seems to be the future-facing choice
+- `TryFrom` should allow users to wrap more types than `FromStr`, without needing annotations to explicitly switch the parsing method/trait
