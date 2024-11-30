@@ -21,7 +21,7 @@ cargo add structre
 
 # Use
 
-Define a structure and use this macro to implement `TryFrom` (and as `FromStr` if the type has no lifetimes):
+Define a structure and use this macro to implement `TryFrom` (and `FromStr` if the type has no lifetimes):
 
 ```
 #[structre("(?P<key>[^:]+): (?P<value>\\d+)")]
@@ -35,7 +35,7 @@ struct KV {
 let m = KV::try_from("hi: 39393")?;
 ```
 
-Both `try_from` and `from_str` returns a result with error type `structre::Error`. The `structre::Error::Field` result only occurs if a field's `from_str` method fails - if all of your fields are strings, you can only get `structre::Error::NoMatch`.
+Both `try_from` and `from_str` returns a result with error type `structre::Error`. The `structre::Error::Field` result only occurs if a field's `try_from` or `from_str` method fails - if all of your fields are strings, you can only get `structre::Error::NoMatch`.
 
 # Expressing regexes with types
 
