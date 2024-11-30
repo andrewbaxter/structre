@@ -21,7 +21,7 @@ cargo add structre
 
 # Use
 
-Define a structure and use this macro to implement `TryFrom` (and `FromStr` if the type has no lifetimes):
+Define a structure and use this macro to implement `TryFrom<&str>` (and `FromStr` if the type has no lifetimes):
 
 ```
 #[structre("(?P<key>[^:]+): (?P<value>\\d+)")]
@@ -104,9 +104,9 @@ Non-unicode parsing isn't currently supported. One issue is I couldn't find an a
 The regex is lazily compiled and stored statically. Originally I made the regex compilation manual and explicit, but this made the ergonomics much worse (managing parsers) and prevented things like implementing `FromStr`. In `0.1.0` I changed it to statically instantiate the regex. I'd be open to making this configurable in the future, either having an option to manually manage the compiled regex or else compiling on every parse for rarely used regexes.
 
 ~~String references and other reference types~~ Reference types are now supported via `TryFrom<&T>` starting in `0.2.0`! There was a large discussion
-at <https://www.reddit.com/r/rust/comments/1h2f6lt/structre_staticchecked_parsing_of_regexes_into/>. In the end I decided to go with basing all use around `TryFrom` instead of `FromStr` with special cases:
+at <https://www.reddit.com/r/rust/comments/1h2f6lt/structre_staticchecked_parsing_of_regexes_into/>. In the end I decided to go with basing all use around `TryFrom<&str>` instead of `FromStr` with special cases:
 
-- Both approaches have special cases: The former has a database of standard library/core types that don't support `TryFrom` to switch to `FromStr`, the latter has carveouts for `&str` and possibly other types (`Cow`?)
+- Both approaches have special cases: The former has a database of standard library/core types that don't support `TryFrom<&str>` to switch to `FromStr`, the latter has carveouts for `&str` and possibly other types (`Cow`?)
 - I think the code for identifing special cases in the latter is more difficult; in the former, all the types are non-generic non-reference types, most without `::` paths
-- Hopefully `TryFrom` support will grow, and at some point the carveouts won't be needed - it seems to be the future-facing choice
-- `TryFrom` should allow users to wrap more types than `FromStr`, without needing annotations to explicitly switch the parsing method/trait
+- Hopefully `TryFrom<&str>` support will grow, and at some point the carveouts won't be needed - it seems to be the future-facing choice
+- `TryFrom<&str>` should allow users to wrap more types than `FromStr`, without needing annotations to explicitly switch the parsing method/trait, so it works better as an interop trait
